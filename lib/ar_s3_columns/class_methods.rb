@@ -8,7 +8,7 @@ module S3Columns
     #  * s3_bucket: S3 bucket to use
     def s3_column_for(column_name, options={})
       raise "Please set a S3Columns.default_aws_bucket" if S3Columns.default_aws_bucket.blank?
-      options[:s3_key]  ||= Proc.new{|object| "#{column_name}/#{object.id}"}
+      options[:s3_key]  ||= Proc.new{|object| "#{column_name}/#{SimpleUUID::UUID.new.to_guid}"}
       options[:s3_bucket]    ||= S3Columns.default_aws_bucket
       self.s3_columns ||= []
       self.s3_columns_keys ||= {}
