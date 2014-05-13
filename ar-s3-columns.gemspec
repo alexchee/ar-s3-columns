@@ -28,4 +28,5 @@ Gem::Specification.new do |spec|
   spec.add_dependency 'rails', '~> 4.0'
   spec.add_dependency 'aws-sdk', '>= 1.39.0'
   spec.add_dependency 'retryable', '>= 1.3.5'
+  spec.add_dependency 'simple_uuid', '>= 0.4.0'
 end
