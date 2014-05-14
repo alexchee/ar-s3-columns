@@ -2,6 +2,7 @@ require 'aws-sdk'
 require 'retryable'
 require 'simple_uuid'
 require 'ar_s3_columns/class_methods'
+require 'ar_s3_columns/instance_methods'
 
 module S3Columns
   class <<self
@@ -18,6 +19,7 @@ module S3Columns
     s3_write_options ||= {}
     
     extend S3Columns::ClassMethods
+    include S3Columns::InstanceMethods
     
   end
 end

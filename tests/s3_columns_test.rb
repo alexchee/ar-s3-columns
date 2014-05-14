@@ -34,15 +34,17 @@ describe "S3Columns" do
   end
   
   it "uploads marshalled value of columns to s3 and save s3 key to db" do
+    SimpleUUID::UUID.any_instance.stubs(:to_guid).returns('unique')
+    
     test_object = ClassWithS3Columns.create(name: "unique")
     value = {something: 'else', goes: 'here'}
     
     @key_stub.expects(:write).with(Marshal.dump(value))
-    @objects_stub.expects(:[]).with("thing/extras/unique").returns(@key_stub)
+    @objects_stub.expects(:[]).with("extra_data/unique").returns(@key_stub)
     @buckets_stub.expects(:[]).with("test").returns(stub(objects: @objects_stub))
     @s3_stub.expects(:buckets).returns(@buckets_stub)
     test_object.extra_data = value
-    assert_equal test_object.read_attribute(:extra_data), "thing/extras/unique"
+    assert_equal "extra_data/unique", test_object.read_attribute(:extra_data)
   end
   
   it "reads from S3 with key in db and if it exists" do
@@ -108,12 +110,54 @@ describe "S3Columns" do
     end
   end
   
+  describe "s3_column_upload_on_create" do
+    it "uploads all S3 columns to S3" do
+      ClassWithS3Columns.s3_column_upload_on_create
+      
+      SimpleUUID::UUID.any_instance.stubs(:to_guid).returns('uuid')
+      extra_value = {some_data: 'this is extra'}
+      options_value = {toggle: true}
+      metadata_value = {user: 1}
+      
+      key_mock = mock("S3 Key")
+      bucket_objects_mock = mock("S3 Objects")
+      bucket_mock = mock('Test S3 Bucket')
+      other_bucket_mock = mock("Other S3 Bucket")
+      other_bucket_objects_mock = mock('Other S3 Objects')
+      
+      key_mock.expects(:write).with(Marshal.dump(extra_value))
+      key_mock.expects(:write).with(Marshal.dump(options_value))
+      key_mock.expects(:write).with(Marshal.dump(metadata_value))
+      
+      bucket_objects_mock.expects(:[]).with("thing/options/aww_yeah").returns(key_mock)
+      bucket_objects_mock.expects(:[]).with('extra_data/uuid').returns(key_mock)
+      other_bucket_objects_mock.expects(:[]).with("thing/meta/aww_yeah").returns(key_mock)
+      
+      bucket_mock.expects(:objects).at_least(2).returns(bucket_objects_mock)
+      other_bucket_objects_mock
+      other_bucket_mock.expects(:objects).returns(other_bucket_objects_mock)
+      buckets_mock = mock("S3 Buckets")
+      buckets_mock.expects(:[]).with("other").returns(other_bucket_mock)
+      buckets_mock.expects(:[]).with("test").at_least(2).returns(bucket_mock)
+      s3_stub = mock("S3 Connection")
+      s3_stub.expects(:buckets).at_least(2).returns(buckets_mock)
+      # S3Columns.unstub(:s3_connection)
+      S3Columns.stubs(:s3_connection).returns(s3_stub)
+      test_object = ClassWithS3Columns.create(name: 'aww_yeah', extra_data: extra_value, options: options_value, metadata: metadata_value)
+      # assert_equal "extra_data/uuid", test_object.read_attribute(:extra_data)
+      # assert_equal "thing/options/aww_yeah", test_object.read_attribute(:options)
+      # assert_equal "thing/meta/aww_yeah", test_object.read_attribute(:metadata)
+    end
+    
+    
+  end
+
 end
 
 S3Columns.default_aws_bucket = "test"
 class ClassWithS3Columns < ActiveRecord::Base
   include S3Columns
-  s3_column_for :extra_data, s3_key: lambda{|m| "thing/extras/#{m.name}"}
+  s3_column_for :extra_data
   s3_column_for :options, s3_key: lambda{|m| "thing/options/#{m.name}"}
   s3_column_for :metadata, s3_bucket: "other", s3_key: lambda{|m| "thing/meta/#{m.name}"}
 end

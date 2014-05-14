@@ -1,6 +1,13 @@
 module S3Columns
   module ClassMethods
     
+    # Adds before_create to upload each S3 column to S3, to prevent it writing the values to DB.
+    # Warning: The default s3_key uses the object's ID which will be nil at this point, should set a custom :s3_key
+    def s3_column_upload_on_create
+      self.class_eval %Q{
+        before_create :s3_column_upload_on_create
+      }
+    end
     
     # Creates reader/writer for given column that will upload the marshalled value to S3
     # Options:
