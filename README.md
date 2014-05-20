@@ -23,6 +23,15 @@ class User < ActiveRecord::Base
   s3_column_for :extra_data
 ...
 ```
+This will add attribute accessors prefixed with "s3_column_#{column name}"
+```
+user = User.new
+# Uploads to S3
+user.s3_column_extra_data = {something: 'here'}
+
+# reads from S3
+user.s3_column_extra_data
+```
 
 Additional options:
  * s3_key: S3 key for column value
@@ -30,4 +39,20 @@ Additional options:
 
 ```
 s3_column_for :metadata, s3_bucket: "other_bucket", s3_key: lambda{|m| "thing/metadata/#{m.name}"}
+```
+
+Before Create hook:
+If you want to automatically upload the columns to S3 on create:
+```
+class User < ActiveRecord::Base
+  include S3Columns
+  s3_column_upload_on_create
+  
+  s3_column_for :extra_data
+...
+```
+This will create a before_create hook to upload to s3 if the attribute is set in the create:
+```
+# This will automatically upload extra_data to S3
+User.create(name: 'aww_yeah', extra_data: extra_value)
 ```

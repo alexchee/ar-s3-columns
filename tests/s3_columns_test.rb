@@ -43,7 +43,7 @@ describe "S3Columns" do
     @objects_stub.expects(:[]).with("extra_data/unique").returns(@key_stub)
     @buckets_stub.expects(:[]).with("test").returns(stub(objects: @objects_stub))
     @s3_stub.expects(:buckets).returns(@buckets_stub)
-    test_object.extra_data = value
+    test_object.s3_column_extra_data = value
     assert_equal "extra_data/unique", test_object.read_attribute(:extra_data)
   end
   
@@ -56,7 +56,7 @@ describe "S3Columns" do
     @objects_stub.expects(:[]).with("some/key").returns(@key_stub)
     @buckets_stub.expects(:[]).with("test").returns(stub(objects: @objects_stub))
     @s3_stub.expects(:buckets).returns(@buckets_stub)
-    assert_equal test_object.extra_data, "some data"
+    assert_equal test_object.s3_column_extra_data, "some data"
   end
 
   it "retries S3 read, when S3 key in db, but does not exists (usually because S3 has not persisted object yet)" do
@@ -68,13 +68,13 @@ describe "S3Columns" do
     @objects_stub.expects(:[]).with("some/key").returns(@key_stub)
     @buckets_stub.expects(:[]).with("test").returns(stub(objects: @objects_stub))
     @s3_stub.expects(:buckets).returns(@buckets_stub)
-    test_object.extra_data
+    test_object.s3_column_extra_data
   end
 
   it "returns nil and do not hit S3, if key is not in db" do
       @s3_stub.expects(:buckets).at_most(0)
       test_object = ClassWithS3Columns.create(name: "unique")
-      assert_nil test_object.extra_data
+      assert_nil test_object.s3_column_extra_data
   end
   
   describe "options" do
@@ -87,7 +87,7 @@ describe "S3Columns" do
         key_stub = stub(exists?: true, read: Marshal.dump('hey'))
         @buckets_stub.expects(:[]).with("some_bucket2").returns(stub(objects: stub(:[] => key_stub)))
         @s3_stub.expects(:buckets).returns(@buckets_stub)
-        test_object.extra_data
+        test_object.s3_column_extra_data
       end
 
       it "uses :s3_bucket for S3 bucket name on writer" do
@@ -97,11 +97,15 @@ describe "S3Columns" do
         
         @buckets_stub.expects(:[]).with("some_bucket2").returns(stub(objects: @objects_stub))
         @s3_stub.expects(:buckets).returns(@buckets_stub)
-        test_object.extra_data = {here: "we go"}
+        test_object.s3_column_extra_data = {here: "we go"}
       end
     end
     
     describe ":s3_key" do
+      after do
+        ClassWithS3Columns.s3_column_for :extra_data
+      end
+
       it "changes S3 key" do
         ClassWithS3Columns.s3_column_for :extra_data, s3_key: lambda{|m| "something/hardcored/#{m.name}"}
         test_object = ClassWithS3Columns.create(name: "my_thing")
@@ -112,7 +116,9 @@ describe "S3Columns" do
   
   describe "s3_column_upload_on_create" do
     it "uploads all S3 columns to S3" do
-      ClassWithS3Columns.s3_column_upload_on_create
+      ClassWithS3Columns.class_eval "
+        s3_column_upload_on_create
+       "
       
       SimpleUUID::UUID.any_instance.stubs(:to_guid).returns('uuid')
       extra_value = {some_data: 'this is extra'}
@@ -129,9 +135,9 @@ describe "S3Columns" do
       key_mock.expects(:write).with(Marshal.dump(options_value))
       key_mock.expects(:write).with(Marshal.dump(metadata_value))
       
-      bucket_objects_mock.expects(:[]).with("thing/options/aww_yeah").returns(key_mock)
-      bucket_objects_mock.expects(:[]).with('extra_data/uuid').returns(key_mock)
-      other_bucket_objects_mock.expects(:[]).with("thing/meta/aww_yeah").returns(key_mock)
+      bucket_objects_mock.expects(:[]).with("thing/options/aww_yeah").at_least(1).returns(key_mock)
+      bucket_objects_mock.expects(:[]).with('extra_data/uuid').at_least(1).returns(key_mock)
+      other_bucket_objects_mock.expects(:[]).with("thing/meta/aww_yeah").at_least(1).returns(key_mock)
       
       bucket_mock.expects(:objects).at_least(2).returns(bucket_objects_mock)
       other_bucket_objects_mock
@@ -144,9 +150,10 @@ describe "S3Columns" do
       # S3Columns.unstub(:s3_connection)
       S3Columns.stubs(:s3_connection).returns(s3_stub)
       test_object = ClassWithS3Columns.create(name: 'aww_yeah', extra_data: extra_value, options: options_value, metadata: metadata_value)
-      # assert_equal "extra_data/uuid", test_object.read_attribute(:extra_data)
-      # assert_equal "thing/options/aww_yeah", test_object.read_attribute(:options)
-      # assert_equal "thing/meta/aww_yeah", test_object.read_attribute(:metadata)
+      # test_object = ClassWithS3Columns.create(name: 'aww_yeah', s3_column_extra_data: extra_value, s3_column_options: options_value, s3_column_metadata: metadata_value)
+      assert_equal "extra_data/uuid", test_object.read_attribute(:extra_data)
+      assert_equal "thing/options/aww_yeah", test_object.read_attribute(:options)
+      assert_equal "thing/meta/aww_yeah", test_object.read_attribute(:metadata)
     end
     
     

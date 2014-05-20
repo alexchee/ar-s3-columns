@@ -7,14 +7,10 @@ module S3Columns
         marshalled_data = Marshal.dump(column_value)
         key_path = self.class.s3_columns_keys[column_name.to_sym].call(self)
         bucket_name = self.class.s3_columns_buckets[column_name.to_sym]
-        bucket=S3Columns.s3_connection.buckets[bucket_name]
-        objs=bucket.objects[key_path]
-        self.send("#{column_name}_will_change!".to_sym)
-        objs.write(marshalled_data)
+        S3Columns.s3_connection.buckets[bucket_name].objects[key_path].write(marshalled_data)
         # saves key to column
         write_attribute(column_name.to_sym, key_path)
       end
     end
-    
   end
 end

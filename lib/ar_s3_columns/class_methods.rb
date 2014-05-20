@@ -26,9 +26,8 @@ module S3Columns
       
       # Creates a reader
       self.class_eval %Q{
-        def #{column_name}
-          key_path = read_attribute(:#{column_name})
-          if key_path.present?
+        def s3_column_#{column_name}
+          if self.persisted? && key_path = read_attribute(:#{column_name})
             key = S3Columns.s3_connection.buckets["#{options[:s3_bucket]}"].objects[key_path]
 
             if key.exists?
@@ -48,7 +47,7 @@ module S3Columns
       
       # Creates writer
       self.class_eval %Q{
-        def #{column_name}=(value)
+        def s3_column_#{column_name}=(value)
           marshalled_value = Marshal.dump(value)
           key_path = self.class.s3_columns_keys[:#{column_name}].call(self)
           S3Columns.s3_connection.buckets["#{options[:s3_bucket]}"].objects[key_path].write(marshalled_value)
