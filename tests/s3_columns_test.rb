@@ -26,6 +26,19 @@ describe "S3Columns" do
         ClassWithS3Columns.s3_column_for :extra_data
       end
     end
+    
+    it "sets the default options for AWS SDK writes" do
+      S3Columns.default_s3_write_options = {acl: :authenticated_read }
+      test_object = ClassWithS3Columns.create(name: "unique")
+      value = {something: 'else', goes: 'here'}
+      
+      @key_stub.expects(:write).with(Marshal.dump(value), {acl: :authenticated_read})
+      @objects_stub.expects(:[]).returns(@key_stub)
+      @buckets_stub.expects(:[]).returns(stub(objects: @objects_stub))
+      @s3_stub.expects(:buckets).returns(@buckets_stub)
+      test_object.s3_column_extra_data = value
+      S3Columns.default_s3_write_options = nil
+    end
   end
   
   it "reads from db for non S3 column" do
@@ -39,7 +52,7 @@ describe "S3Columns" do
     test_object = ClassWithS3Columns.create(name: "unique")
     value = {something: 'else', goes: 'here'}
     
-    @key_stub.expects(:write).with(Marshal.dump(value))
+    @key_stub.expects(:write).with(Marshal.dump(value), {})
     @objects_stub.expects(:[]).with("extra_data/unique").returns(@key_stub)
     @buckets_stub.expects(:[]).with("test").returns(stub(objects: @objects_stub))
     @s3_stub.expects(:buckets).returns(@buckets_stub)
@@ -112,6 +125,7 @@ describe "S3Columns" do
         assert_equal ClassWithS3Columns.s3_columns_keys[:extra_data].call(test_object), "something/hardcored/my_thing"
       end
     end
+    
   end
   
   describe "s3_column_upload_on_create" do
@@ -131,9 +145,9 @@ describe "S3Columns" do
       other_bucket_mock = mock("Other S3 Bucket")
       other_bucket_objects_mock = mock('Other S3 Objects')
       
-      key_mock.expects(:write).with(Marshal.dump(extra_value))
-      key_mock.expects(:write).with(Marshal.dump(options_value))
-      key_mock.expects(:write).with(Marshal.dump(metadata_value))
+      key_mock.expects(:write).with(Marshal.dump(extra_value), {})
+      key_mock.expects(:write).with(Marshal.dump(options_value), {})
+      key_mock.expects(:write).with(Marshal.dump(metadata_value), {})
       
       bucket_objects_mock.expects(:[]).with("thing/options/aww_yeah").at_least(1).returns(key_mock)
       bucket_objects_mock.expects(:[]).with('extra_data/uuid').at_least(1).returns(key_mock)

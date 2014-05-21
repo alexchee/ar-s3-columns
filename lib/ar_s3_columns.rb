@@ -6,8 +6,8 @@ require 'ar_s3_columns/instance_methods'
 
 module S3Columns
   class <<self
-    attr_accessor :default_aws_bucket
-
+    attr_accessor :default_aws_bucket, :default_s3_write_options
+    
     def s3_connection
       Thread.current[:aws_s3_connection] ||= AWS::S3.new
     end

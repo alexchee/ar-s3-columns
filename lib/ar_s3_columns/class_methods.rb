@@ -50,7 +50,8 @@ module S3Columns
         def s3_column_#{column_name}=(value)
           marshalled_value = Marshal.dump(value)
           key_path = self.class.s3_columns_keys[:#{column_name}].call(self)
-          S3Columns.s3_connection.buckets["#{options[:s3_bucket]}"].objects[key_path].write(marshalled_value)
+          write_options = S3Columns.default_s3_write_options || {}
+          S3Columns.s3_connection.buckets["#{options[:s3_bucket]}"].objects[key_path].write(marshalled_value, write_options)
           # update column with new key
           write_attribute(:#{column_name}, key_path)
         end
