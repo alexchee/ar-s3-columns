@@ -14,8 +14,14 @@ AWS.config({
 S3Columns.default_aws_bucket = "my-bucket"
 ```
 
+To configure write options for AWS SDK, set default_s3_write_options:
+```
+S3Columns.default_s3_write_options = {acl: :authenticated_read }
+```
+This will set an ACL to each uploaded data as Authenticated Reads.
 
- Include S3Columns and declare columns that will be pushed to S3
+
+Include S3Columns and declare columns that will be pushed to S3
 ```
 class User < ActiveRecord::Base
   include S3Columns
