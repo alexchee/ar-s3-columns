@@ -29,18 +29,12 @@ module S3Columns
         def s3_column_#{column_name}
           if self.persisted? && key_path = read_attribute(:#{column_name})
             key = S3Columns.s3_connection.buckets["#{options[:s3_bucket]}"].objects[key_path]
-
-            if key.exists?
+            # Retry in case it is not persisted in S3 yet
+            Retryable.retryable :on => [AWS::S3::Errors::NoSuchKey], :tries => 10, :sleep => 1 do
               @#{column_name} ||= Marshal.load(key.read)
-            else
-              # Retry in case it is not persisted in S3 yet
-              Retryable.retryable :on => [AWS::S3::Errors::NoSuchKey], :tries => 10, :sleep => 1 do
-                @#{column_name} ||= Marshal.load(key.read)
-              end
             end
-
           else
-            nil
+            @#{column_name}
           end
         end
       }
@@ -54,6 +48,7 @@ module S3Columns
           S3Columns.s3_connection.buckets["#{options[:s3_bucket]}"].objects[key_path].write(marshalled_value, write_options)
           # update column with new key
           write_attribute(:#{column_name}, key_path)
+          @#{column_name} = value
         end
       }
     end

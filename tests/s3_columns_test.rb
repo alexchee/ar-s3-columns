@@ -45,6 +45,23 @@ describe "S3Columns" do
     test_object = ClassWithS3Columns.create(name: 'hey')
     assert_equal "hey", test_object.name
   end
+
+  it "memoizes value on write" do
+    SimpleUUID::UUID.any_instance.stubs(:to_guid).returns('unique')
+    test_object = ClassWithS3Columns.new
+    v = {hi: 'hello'}
+
+    @key_stub.expects(:write).with(Marshal.dump(v), {})
+    @objects_stub.expects(:[]).with("extra_data/unique").returns(@key_stub)
+    @buckets_stub.expects(:[]).with("test").returns(stub(objects: @objects_stub))
+    @s3_stub.expects(:buckets).returns(@buckets_stub)
+
+    test_object.s3_column_extra_data = v
+    assert_equal test_object.s3_column_extra_data, v
+
+    test_object = ClassWithS3Columns.new(extra_data: v)
+    assert_equal test_object.extra_data, v
+  end
   
   it "uploads marshalled value of columns to s3 and save s3 key to db" do
     SimpleUUID::UUID.any_instance.stubs(:to_guid).returns('unique')
@@ -60,28 +77,15 @@ describe "S3Columns" do
     assert_equal "extra_data/unique", test_object.read_attribute(:extra_data)
   end
   
-  it "reads from S3 with key in db and if it exists" do
+  it "reads from S3 with key in db" do
     test_object = ClassWithS3Columns.create(name: "unique")
     test_object.send(:write_attribute, :extra_data, 'some/key')
 
-    @key_stub.expects(:exists?).returns(true)
     @key_stub.expects(:read).returns(Marshal.dump("some data"))
     @objects_stub.expects(:[]).with("some/key").returns(@key_stub)
     @buckets_stub.expects(:[]).with("test").returns(stub(objects: @objects_stub))
     @s3_stub.expects(:buckets).returns(@buckets_stub)
     assert_equal test_object.s3_column_extra_data, "some data"
-  end
-
-  it "retries S3 read, when S3 key in db, but does not exists (usually because S3 has not persisted object yet)" do
-    test_object = ClassWithS3Columns.create(name: "unique")
-    test_object.send(:write_attribute, :extra_data, 'some/key')
-    
-    Retryable.expects(:retryable)
-    @key_stub.expects(:exists?).returns(false)
-    @objects_stub.expects(:[]).with("some/key").returns(@key_stub)
-    @buckets_stub.expects(:[]).with("test").returns(stub(objects: @objects_stub))
-    @s3_stub.expects(:buckets).returns(@buckets_stub)
-    test_object.s3_column_extra_data
   end
 
   it "returns nil and do not hit S3, if key is not in db" do
