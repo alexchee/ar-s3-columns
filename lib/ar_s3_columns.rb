@@ -20,6 +20,7 @@ module S3Columns
     
     extend S3Columns::ClassMethods
     include S3Columns::InstanceMethods
+    before_destroy :s3_column_destroy_all_s3_data
     
   end
 end

@@ -94,6 +94,20 @@ describe "S3Columns" do
       assert_nil test_object.s3_column_extra_data
   end
   
+  it "should delete all data from S3 on destroy" do
+    test_object = ClassWithS3Columns.create(name: "destroy me")
+    test_object.send(:write_attribute, :extra_data, 'some/key')
+    test_object.send(:write_attribute, :options, 'some/key2')
+    test_object.save
+    
+    @key_stub.expects(:delete).at_least(2)
+    @objects_stub.expects(:[]).with("some/key").returns(@key_stub)
+    @objects_stub.expects(:[]).with("some/key2").returns(@key_stub)
+    @buckets_stub.expects(:[]).at_least(2).returns(stub(objects: @objects_stub))
+    @s3_stub.expects(:buckets).at_least(2).returns(@buckets_stub)
+    test_object.destroy
+  end
+  
   describe "options" do
     describe ":s3_bucket" do
       it "uses :s3_bucket for S3 bucket name on reader" do

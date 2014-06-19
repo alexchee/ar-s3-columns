@@ -1,6 +1,5 @@
 module S3Columns
   module ClassMethods
-    
     # Adds before_create to upload each S3 column to S3, to prevent it writing the values to DB.
     # Warning: The default s3_key uses the object's ID which will be nil at this point, should set a custom :s3_key
     def s3_column_upload_on_create
@@ -51,6 +50,15 @@ module S3Columns
           @#{column_name} = value
         end
       }
+      
+      # Destroy Hook
+      self.class_eval %Q{
+        def s3_column_destroy_#{column_name}
+          key_path = self.read_attribute(:#{column_name})
+          S3Columns.s3_connection.buckets["#{options[:s3_bucket]}"].objects[key_path].delete if key_path
+        end
+      }
     end
+    
   end
 end

@@ -13,5 +13,11 @@ module S3Columns
         write_attribute(column_name.to_sym, key_path)
       end
     end
+    
+    def s3_column_destroy_all_s3_data
+      self.s3_columns.each do |column_name|
+        self.send("s3_column_destroy_#{column_name}")
+      end
+    end
   end
 end
